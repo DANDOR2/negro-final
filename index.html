@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cocker Dash</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        canvas {
+            display: block;
+            background: linear-gradient(to bottom, #add8e6, #87ceeb);
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            font-size: 24px;
+            display: none;
+        }
+
+        .restart-btn {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 18px;
+            background: #ffcc00;
+            color: black;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .restart-btn:hover {
+            background: #ffaa00;
+        }
+
+        .message {
+            position: absolute;
+            top: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 36px;
+            color: #fff;
+            text-shadow: 1px 1px 3px #000;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-over" id="game-over">
+        <p>Game Over</p>
+        <p id="final-score"></p>
+        <button class="restart-btn" onclick="restartGame()">Restart</button>
+    </div>
+
+    <script>
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        document.body.appendChild(canvas);
+
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const gravity = 0.6;
+        const jumpStrength = -10;
+        let obstacleSpeed = 4;
+        let score = 0;
+        let lives = 3;
+        let gameOver = false;
+        const obstacles = [];
+        const obstacleSpawnRate = 90;
+        let obstacleTimer = 0;
+
+        const cockerImage = new Image();
+        cockerImage.src = 'https://i.imgur.com/MBzhEWM.jpeg';
+
+        const messages = [
+            "¡Cocker en acción!",
+            "¡Cuidado con los obstáculos!",
+            "¡No te detengas!",
+            "¡Eres imparable!",
+            "100 puntos alcanzados: ¡Leyenda viviente!",
+            "Los cockers no saltan, vuelan.",
+            "¡Cuidado! ¡Otro obstáculo más y tu cocker te demandará!",
+            "¿Saltaste bien o fue suerte?",
+            "¡Otro salto épico, cocker campeón!",
+            "¿Sabías que los cockers también necesitan descansar?",
+            "¡Vamos, cocker! No te rindas... todavía.",
+            "Cuando un cocker salta, la tierra tiembla.",
+            "Los obstáculos son solo escalones para tu grandeza, cocker.",
+            "¡Un salto más y conquistaremos el cielo!",
+            "Cada salto te hace más fuerte, pero también más loco.",
+            "100 puntos más: ¡Cocker indestructible en camino!",
+            "¡Alguien llame a Guinness, tenemos un récord de saltos aquí!"
+        ];
+
+        class Cocker {
+            constructor() {
+                this.x = 50;
+                this.y = canvas.height / 2;
+                this.width = 50;
+                this.height = 50;
+                this.dy = 0;
+            }
+
+            draw() {
+                ctx.drawImage(cockerImage, this.x, this.y, this.width, this.height);
+            }
+
+            update() {
+                this.dy += gravity;
+                this.y += this.dy;
+
+                if (this.y + this.height >= canvas.height) {
+                    this.y = canvas.height - this.height;
+                    this.dy = 0;
+                }
+
+                if (this.y <= 0) {
+                    this.y = 0;
+                    this.dy = 0;
+                }
+
+                this.draw();
+            }
+
+            jump() {
+                this.dy = jumpStrength;
+            }
+        }
+
+        class Obstacle {
+            constructor(x, y, width, height) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+            }
+
+            draw() {
+                ctx.fillStyle = 'green';
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+            }
+
+            update() {
+                this.x -= obstacleSpeed;
+                this.draw();
+            }
+        }
+
+        const cocker = new Cocker();
+
+        function spawnObstacle() {
+            const gap = 200;
+            const height = Math.random() * (canvas.height / 2);
+            obstacles.push(new Obstacle(canvas.width, 0, 50, height));
+            obstacles.push(new Obstacle(canvas.width, height + gap, 50, canvas.height - height - gap));
+        }
+
+        function handleObstacles() {
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obs = obstacles[i];
+                obs.update();
+
+                if (
+                    cocker.x < obs.x + obs.width &&
+                    cocker.x + cocker.width > obs.x &&
+                    cocker.y < obs.y + obs.height &&
+                    cocker.y + cocker.height > obs.y
+                ) {
+                    lives--;
+                    obstacles.splice(i, 1);
+                    if (lives <= 0) {
+                        gameOver = true;
+                        document.getElementById('game-over').style.display = 'block';
+                        document.getElementById('final-score').textContent = `Puntuación: ${score}`;
+                    }
+                }
+
+                if (obs.x + obs.width < 0) {
+                    obstacles.splice(i, 1);
+                    score++;
+                    if (score % 10 === 0) showMessage();
+                    if (score % 100 === 0) showImage();
+                }
+            }
+        }
+
+        function showMessage() {
+            const msg = document.createElement('div');
+            msg.className = 'message';
+            msg.textContent = messages[Math.floor(Math.random() * messages.length)];
+            document.body.appendChild(msg);
+            setTimeout(() => msg.remove(), 3000);
+        }
+
+        function showImage() {
+            const img = document.createElement('img');
+            img.src = cockerImage.src;
+            img.style.position = 'absolute';
+            img.style.top = '50%';
+            img.style.left = '50%';
+            img.style.transform = 'translate(-50%, -50%)';
+            img.style.width = '300px';
+            img.style.height = '300px';
+            img.style.zIndex = '1000';
+            document.body.appendChild(img);
+            setTimeout(() => img.remove(), 3000);
+        }
+
+        function restartGame() {
+            score = 0;
+            lives = 3;
+            obstacleSpeed = 4;
+            gameOver = false;
+            obstacles.length = 0;
+            cocker.y = canvas.height / 2;
+            document.getElementById('game-over').style.display = 'none';
+            animate();
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (!gameOver) {
+                obstacleTimer++;
+                if (obstacleTimer >= obstacleSpawnRate) {
+                    spawnObstacle();
+                    obstacleTimer = 0;
+                }
+
+                cocker.update();
+                handleObstacles();
+
+                ctx.fillStyle = 'black';
+                ctx.font = '20px Arial';
+                ctx.fillText(`Puntuación: ${score}`, 20, 30);
+                ctx.fillText(`Vidas: ${lives}`, 20, 60);
+
+                requestAnimationFrame(animate);
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') cocker.jump();
+        });
+
+        canvas.addEventListener('touchstart', () => cocker.jump());
+
+        animate();
+    </script>
+</body>
+</html>
